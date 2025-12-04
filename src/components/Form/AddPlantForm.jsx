@@ -1,28 +1,68 @@
 import { useForm } from "react-hook-form";
 import { imageUpload } from "../../Utils";
+import useAuth from "../../hooks/useAuth";
+import axios from "axios";
+import { useMutation } from "@tanstack/react-query";
+import LoadingSpinner from "../Shared/LoadingSpinner";
+import ErrorPage from "../../pages/ErrorPage";
+import toast from "react-hot-toast";
 
 const AddPlantForm = () => {
+  const { user } = useAuth();
+
+  const { isPending, isError, mutateAsync } = useMutation({
+    mutationFn: async (payload) =>
+      axios.post(`${import.meta.env.VITE_API_URL}/plants`, payload),
+    onSuccess: (data) => {
+      console.log(data);
+      toast.success('plant added successflly')
+    },
+    onError: (err) => {
+      console.log(err);
+    },
+    onSettled: (data, err) => {
+      if (err) console.log(err);
+    },
+  });
+
   const {
     register,
     handleSubmit,
     formState: { errors },
+    reset,
   } = useForm();
 
   const onSubmit = async (data) => {
     const { name, description, quantity, price, category, image } = data;
     const imgFile = image[0];
-    const imgUrl = await imageUpload(imgFile);
-    const plantData = {
-      image: imgUrl,
-      name,
-      description,
-      quantity,
-      price,
-      category,
-    };
 
-    console.table(plantData);
+    try {
+      const imgUrl = await imageUpload(imgFile);
+      const plantData = {
+        image: imgUrl,
+        name,
+        description,
+        quantity: Number(quantity),
+        price: Number(price),
+        category,
+        sellers: {
+          image: user?.photoURL,
+          name: user?.displayName,
+          email: user?.email,
+        },
+      };
+      await mutateAsync(plantData);
+      reset();
+      // console.log(data);
+    } catch (err) {
+      console.log(err);
+    }
+
+    console.log(data);
   };
+
+  if (isPending) return <LoadingSpinner />;
+  if (isError) return <ErrorPage />;
 
   return (
     <div className="w-full min-h-[calc(100vh-40px)] flex flex-col justify-center items-center text-gray-800 rounded-xl bg-gray-50">
